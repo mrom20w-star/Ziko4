@@ -1,0 +1,6 @@
+{
+  "name": "هاك زيكو الروسي",
+  "description": "منصة هاك زيكو الروسي لتحليلات وإشارات الألعاب المباشرة مع توقعات ذكية لمنصة BIZBET بدقة 99%.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

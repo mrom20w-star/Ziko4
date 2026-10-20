@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-cairo: 'Cairo', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Share Tech Mono', monospace, ui-monospace;
+    --font-cyber: 'Chakra Petch', 'Cairo', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-cairo);
+    background-color: #06070a;
+    color: #ffffff;
+  }
+}
+
+/* Custom glowing and neon utilities */
+.shadow-neon-red {
+  box-shadow: 0 0 20px rgba(255, 30, 56, 0.4), 0 0 40px rgba(255, 30, 56, 0.2);
+}
+
+.shadow-neon-cyan {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), 0 0 35px rgba(0, 240, 255, 0.15);
+}
+
+.shadow-neon-gold {
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.35), 0 0 35px rgba(250, 204, 21, 0.15);
+}
+
+.text-glow-red {
+  text-shadow: 0 0 12px rgba(255, 30, 56, 0.7);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.7);
+}
+
+.font-mono-cyber {
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.font-cyber {
+  font-family: 'Chakra Petch', 'Cairo', sans-serif;
+}
+
+/* Custom animations */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-radar {
+  animation: radar-sweep 4s linear infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s ease-in-out infinite;
+}
+
+/* Hide scrollbar for clean UI */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
