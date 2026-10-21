@@ -33,10 +33,7 @@ export default function App() {
     return localStorage.getItem('smart_ai_active_code');
   });
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
-  const [currentScreen, setCurrentScreen] = useState<ScreenState>(() => {
-    const saved = localStorage.getItem('smart_ai_active_code');
-    return saved ? 'platform_select' : 'code_activation';
-  });
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>('platform_select');
 
   // Modals state
   const [isPromoOpen, setIsPromoOpen] = useState(false);
@@ -112,7 +109,7 @@ export default function App() {
     localStorage.removeItem('smart_ai_active_code');
     setActiveCode(null);
     setRemainingSeconds(null);
-    setCurrentScreen('code_activation');
+    setCurrentScreen('activation_flow');
     setIsExpiredOpen(true);
     sound.playClick();
   };
@@ -127,16 +124,23 @@ export default function App() {
   };
 
   const handleProceedFromPlatform = () => {
-    if (userId) {
+    if (userId && activeCode) {
       setCurrentScreen('games_hub');
     } else {
       setCurrentScreen('activation_flow');
     }
   };
 
-  const handleCompleteActivation = (newUserId: string) => {
+  const handleCompleteActivation = (newUserId: string, codeData: AccessCode) => {
     setUserId(newUserId);
     localStorage.setItem('smart_ai_user_id', newUserId);
+    if (codeData && codeData.code) {
+      localStorage.setItem('smart_ai_active_code', codeData.code);
+      setActiveCode(codeData.code);
+      const now = Date.now();
+      const rem = codeData.expiresAt ? Math.max(0, Math.floor((codeData.expiresAt - now) / 1000)) : (codeData.durationHours * 3600);
+      setRemainingSeconds(rem);
+    }
     setCurrentScreen('games_hub');
   };
 
@@ -178,8 +182,7 @@ export default function App() {
         {currentScreen === 'admin_dashboard' && (
           <AdminDashboard
             onBack={() => {
-              if (activeCode) setCurrentScreen('platform_select');
-              else setCurrentScreen('code_activation');
+              setCurrentScreen('platform_select');
             }}
             lang={lang}
           />

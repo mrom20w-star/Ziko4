@@ -51,8 +51,14 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
   const [activeOnline, setActiveOnline] = useState(3840);
   const [scanStep, setScanStep] = useState(0);
 
-  // Subscribe in real-time to m11 path in Firebase
+  // Subscribe in real-time to m11 path in Firebase and load initial predictions
   useEffect(() => {
+    getApplePredictions().then((data) => {
+      if (data && Object.keys(data).length > 0) {
+        setPredictions(data);
+      }
+    });
+
     const unsub = subscribeToApplePredictions((data) => {
       if (data && Object.keys(data).length > 0) {
         setPredictions(data);
@@ -69,26 +75,45 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
     };
   }, []);
 
-  // 3️⃣ المعادلة السحرية لربط الإحداثيات برقم الخانة (m1 إلى m50) والتحقق من القيمة
+  // 3️⃣ المعادلة الدقيقة لربط الإحداثيات برقم الخانة (m1 إلى m50) والتوافق 100% مع قاعدة النسخة
   const isSafeApple = (rowIdx: number, colIdx: number): boolean => {
     if (!predictions || Object.keys(predictions).length === 0) return false;
 
-    // 1. حساب الرقم التسلسلي للخانة: row * 5 + col + 1
+    // Resolve predictions root map:
+    // In Firebase RTDB path /m11, the keys are m1, m2, ..., m50.
+    // Cell 11 is literally named 'm11': { m11: '1' } and must NOT be confused with a wrapper!
+    let root: Record<string, unknown> = predictions as Record<string, unknown>;
+    if (!('m1' in predictions) && predictions.m11 && typeof predictions.m11 === 'object') {
+      const candidate = predictions.m11 as Record<string, unknown>;
+      if ('m1' in candidate || 'm2' in candidate) {
+        root = candidate;
+      }
+    }
+
+    // 1. حساب الرقم التسلسلي للخانة: row * 5 + col + 1 (من 1 إلى 50)
     const mIndex = rowIdx * 5 + colIdx + 1;
     const mKey = `m${mIndex}`;
 
-    // 2. قراءة الكائن المقابل للخانة من التوقعات المجلوبة من مسار m11
-    const mObj = predictions[mKey];
+    // 2. قراءة الخانة سواء كانت mKey أو رقمية أو داخل مصفوفة
+    const cell: unknown =
+      root[mKey] ??
+      root[String(mIndex)] ??
+      (Array.isArray(root) ? root[mIndex] : undefined);
 
-    // 3. التحقق من القيمة والتأكد أنها تساوي "1"
-    if (mObj && typeof mObj === 'object' && mObj[mKey] === '1') {
-      return true; // التفاحة سليمة!
+    if (cell === undefined || cell === null) return false;
+
+    // 3. دعم الكائنات المتداخلة مثل { m1: "1" } أو { m1: 1 }
+    if (typeof cell === 'object') {
+      const obj = cell as Record<string, unknown>;
+      const val = obj[mKey] ?? obj[String(mIndex)] ?? obj.val ?? obj.value ?? Object.values(obj)[0];
+      return String(val) === '1' || val === true || val === 1;
     }
 
-    return false; // التفاحة تالفة
+    // 4. دعم القيم المباشرة "1" أو 1 أو true
+    return String(cell) === '1' || cell === true || cell === 1;
   };
 
-  // زر ابدأ الدور: توليد وحفظ توقعات جديدة في Firebase
+  // زر ابدأ الدور: مزامنة التوقعات المباشرة من سيرفر الفايربيز مسار m11 وكشف التفاحات
   const handleStartRound = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
@@ -102,16 +127,42 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
       sound.playRadarTick();
     }, 110);
 
-    const newPreds = generateApplePredictionsData();
+    try {
+      // قراءة أحدث بيانات مسجلة في مسار m11 من Firebase
+      const liveData = await getApplePredictions();
+      if (liveData && Object.keys(liveData).length > 0) {
+        setPredictions(liveData);
+      } else {
+        const newPreds = generateApplePredictionsData();
+        await saveApplePredictions(newPreds);
+        setPredictions(newPreds);
+      }
+    } catch {
+      if (!predictions || Object.keys(predictions).length === 0) {
+        const fallback = generateApplePredictionsData();
+        setPredictions(fallback);
+      }
+    }
 
-    setTimeout(async () => {
+    setTimeout(() => {
       clearInterval(scanInterval);
-      await saveApplePredictions(newPreds);
-      setPredictions(newPreds);
       setIsAnalyzing(false);
       setHasRevealed(true);
       sound.playSuccess();
-    }, 1300);
+    }, 1200);
+  };
+
+  // زر توليد دور جديد ونشره في مسار m11 بقاعدة الفايربيز
+  const handleGenerateNextRound = async () => {
+    if (isAnalyzing) return;
+    setIsAnalyzing(true);
+    sound.playScan();
+    const newPreds = generateApplePredictionsData();
+    await saveApplePredictions(newPreds);
+    setPredictions(newPreds);
+    setHasRevealed(true);
+    setIsAnalyzing(false);
+    sound.playSuccess();
   };
 
   const handleReset = () => {
@@ -150,7 +201,7 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-emerald-500/60 p-0.5 bg-black shadow-[0_0_20px_rgba(52,211,153,0.4)] shrink-0">
             <img
-              src="/apple-good.jpg"
+              src="/apple-official.png"
               alt="Apple of Fortune"
               className="w-full h-full object-contain rounded-xl"
             />
@@ -175,6 +226,24 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
       <div className="relative bg-zinc-950/90 backdrop-blur-2xl border-2 border-[#ff1e38]/40 rounded-[28px] p-3 sm:p-5 shadow-[0_0_35px_rgba(255,30,56,0.2)]">
         {/* Background circuit grid */}
         <div className="absolute inset-0 bg-[radial-gradient(#ff1e38_1px,transparent_1px)] [background-size:18px_18px] opacity-10 pointer-events-none rounded-[28px]" />
+
+        {/* Column Numbers Header: 1 | 2 | 3 | 4 | 5 matching 1xBet layout */}
+        <div className="flex items-center gap-2 sm:gap-3 px-1 pb-1 mb-1 border-b border-white/5" dir="ltr">
+          <div className="w-14 sm:w-16 shrink-0 text-center">
+            <span className="text-[9px] font-black font-mono text-zinc-500 uppercase tracking-widest">
+              الادّات
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1">
+            {[1, 2, 3, 4, 5].map((colNum) => (
+              <div key={colNum} className="text-center">
+                <span className="text-[10px] font-black font-mono-cyber text-zinc-400 bg-zinc-900/60 px-1.5 py-0.5 rounded border border-white/5">
+                  C{colNum}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* 10 Rows Matrix Container (dir="ltr" so odds/ادات are on the LEFT as requested) */}
         <div className="relative z-10 flex flex-col gap-1.5" dir="ltr">
@@ -204,13 +273,19 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
                 <div className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1">
                   {Array.from({ length: 5 }).map((_, cIdx) => {
                     const isSafe = isSafeApple(rowInfo.row, cIdx);
+                    // Optimal primary path recommendation
+                    const isPrimarySafe =
+                      isSafe &&
+                      !Array.from({ length: cIdx }).some((_, prevC) => isSafeApple(rowInfo.row, prevC));
 
                     return (
                       <div
                         key={cIdx}
                         className={`aspect-square rounded-xl border flex flex-col items-center justify-center relative transition-all duration-300 overflow-hidden select-none ${
                           hasRevealed && isSafe
-                            ? 'border-2 border-emerald-400 bg-gradient-to-b from-emerald-950/90 via-black to-zinc-950 shadow-[0_0_18px_rgba(52,211,153,0.7)] scale-105 z-10'
+                            ? isPrimarySafe
+                              ? 'border-2 border-amber-400 bg-gradient-to-b from-emerald-950/90 via-black to-zinc-950 shadow-[0_0_22px_rgba(245,158,11,0.6)] scale-105 z-10'
+                              : 'border-2 border-emerald-400 bg-gradient-to-b from-emerald-950/90 via-black to-zinc-950 shadow-[0_0_18px_rgba(52,211,153,0.7)] scale-105 z-10'
                             : hasRevealed && !isSafe
                             ? 'border border-red-500/20 bg-zinc-950/60 opacity-30'
                             : isScanningThisRow
@@ -218,11 +293,16 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
                             : 'border-white/10 bg-zinc-900/70 hover:border-white/20'
                         }`}
                       >
+                        {hasRevealed && isSafe && isPrimarySafe && (
+                          <div className="absolute top-0.5 right-0.5 z-20 bg-amber-500 text-black text-[7px] font-black px-1 rounded-full shadow-sm">
+                            ⭐
+                          </div>
+                        )}
                         {hasRevealed ? (
                           isSafe ? (
                             <div className="w-full h-full p-1 flex items-center justify-center animate-in zoom-in-75 duration-300">
                               <img
-                                src="/apple-good.jpg"
+                                src="/apple-official.png"
                                 alt="تفاحة ذهبية سليمة"
                                 className="w-[88%] h-[88%] object-contain rounded-lg drop-shadow-[0_0_10px_rgba(52,211,153,0.9)]"
                               />
@@ -283,18 +363,29 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
         >
           <Play className="w-4 h-4 fill-white" />
           <span>
-            {isAnalyzing ? 'جارٍ تحليل المسار...' : 'ابدأ الدور'}
+            {isAnalyzing ? 'جارٍ المزامنة وكشف المسار من الفايربيز...' : 'ابدأ الدور (كشف التوقعات المباشرة)'}
           </span>
         </button>
 
         {hasRevealed && (
-          <button
-            onClick={handleReset}
-            className="w-full h-11 rounded-2xl bg-zinc-900 border border-white/10 hover:border-white/25 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>إعادة ضبط الدور</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleGenerateNextRound}
+              disabled={isAnalyzing}
+              className="h-11 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-400 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>توليد جولة جديدة في الفايربيز</span>
+            </button>
+
+            <button
+              onClick={handleReset}
+              className="h-11 rounded-2xl bg-zinc-900 border border-white/10 hover:border-white/25 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>إعادة ضبط الدور</span>
+            </button>
+          </div>
         )}
       </div>
 

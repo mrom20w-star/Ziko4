@@ -25,8 +25,8 @@ export const TopUpModal: React.FC<TopUpModalProps> = ({ isOpen, onClose, lang })
           </h3>
           <p className="text-xs text-zinc-300 mt-2 leading-relaxed bg-zinc-900/80 p-3.5 rounded-2xl border border-white/5">
             {lang === 'ar'
-              ? 'يجب عليك إجراء إيداع للحد الأدنى (150 جنيه / $3) لكي تظهر التوقعات الصحيحة وتعمل الخوارزمية بدقة 99%.'
-              : 'You must make a deposit for the minimum amount ($3 / 150 L.E) in order for the correct predictions to appear and sync with 99% accuracy.'}
+              ? 'يجب عليك إجراء إيداع للحد الأدنى (180 جنيه / $4) لكي تظهر التوقعات الصحيحة وتعمل الخوارزمية بدقة 99%.'
+              : 'You must make a deposit for the minimum amount ($4 / 180 L.E) in order for the correct predictions to appear and sync with 99% accuracy.'}
           </p>
         </div>
 

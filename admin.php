@@ -9,14 +9,14 @@ header('Content-Type: text/html; charset=utf-8');
 
 // Firebase Configuration Provided by User
 $firebaseConfig = [
-    'apiKey' => 'AIzaSyAlX1ASvDrf5BBtaB72AUYqSoW34YvP_y4',
-    'authDomain' => 'mrwan-dd795.firebaseapp.com',
-    'databaseURL' => 'https://mrwan-dd795-default-rtdb.firebaseio.com',
-    'projectId' => 'mrwan-dd795',
-    'storageBucket' => 'mrwan-dd795.firebasestorage.app',
-    'messagingSenderId' => '12538399995',
-    'appId' => '1:12538399995:web:4a7e6b40f611891fecb45e',
-    'measurementId' => 'G-KBTHXXDYBL'
+    'apiKey' => 'AIzaSyCC5-CsnGY5sMXzpNnnTPvDwdFu8aHX8cQ',
+    'authDomain' => 'ziko-5fa27.firebaseapp.com',
+    'databaseURL' => 'https://ziko-5fa27-default-rtdb.firebaseio.com',
+    'projectId' => 'ziko-5fa27',
+    'storageBucket' => 'ziko-5fa27.firebasestorage.app',
+    'messagingSenderId' => '177756561652',
+    'appId' => '1:177756561652:web:547eff48265a1ec4393ea1',
+    'measurementId' => 'G-XMFNR6TK9L'
 ];
 
 $databaseUrl = rtrim($firebaseConfig['databaseURL'], '/');
