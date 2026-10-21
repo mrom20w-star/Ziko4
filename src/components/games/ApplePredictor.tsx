@@ -50,27 +50,16 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeOnline, setActiveOnline] = useState(3840);
   const [scanStep, setScanStep] = useState(0);
+  const [roundNumber, setRoundNumber] = useState(0);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
 
-  // Subscribe in real-time to m11 path in Firebase and load initial predictions
+  // Online fluctuation timer (does NOT fetch or save to Firebase on mount)
   useEffect(() => {
-    getApplePredictions().then((data) => {
-      if (data && Object.keys(data).length > 0) {
-        setPredictions(data);
-      }
-    });
-
-    const unsub = subscribeToApplePredictions((data) => {
-      if (data && Object.keys(data).length > 0) {
-        setPredictions(data);
-      }
-    });
-
     const timer = setInterval(() => {
       setActiveOnline((prev) => prev + (Math.floor(Math.random() * 7) - 3));
     }, 4000);
 
     return () => {
-      unsub();
       clearInterval(timer);
     };
   }, []);
@@ -113,7 +102,7 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
     return String(cell) === '1' || cell === true || cell === 1;
   };
 
-  // زر ابدأ الدور: مزامنة التوقعات المباشرة من سيرفر الفايربيز مسار m11 وكشف التفاحات
+  // زر ابدأ الدور: توليد وحفظ توقعات دور جديد كلياً في الفايربيز وتحديث المسار فورياً
   const handleStartRound = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
@@ -125,31 +114,32 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
     const scanInterval = setInterval(() => {
       setScanStep((s) => (s + 1) % 10);
       sound.playRadarTick();
-    }, 110);
+    }, 100);
+
+    // توليد دور جديد كلياً مختلف عن الدور السابق لتحديث التوقعات
+    const newPreds = generateApplePredictionsData();
 
     try {
-      // قراءة أحدث بيانات مسجلة في مسار m11 من Firebase
-      const liveData = await getApplePredictions();
-      if (liveData && Object.keys(liveData).length > 0) {
-        setPredictions(liveData);
-      } else {
-        const newPreds = generateApplePredictionsData();
-        await saveApplePredictions(newPreds);
-        setPredictions(newPreds);
-      }
-    } catch {
-      if (!predictions || Object.keys(predictions).length === 0) {
-        const fallback = generateApplePredictionsData();
-        setPredictions(fallback);
-      }
+      // حفظ توقعات الدور الجديد فورياً في مسار m11 بالفايربيز
+      await saveApplePredictions(newPreds);
+    } catch (e) {
+      console.warn('Firebase RTDB save error:', e);
     }
 
     setTimeout(() => {
       clearInterval(scanInterval);
+      setPredictions(newPreds);
+      setRoundNumber((prev) => prev + 1);
+      const nowStr = new Date().toLocaleTimeString('ar-EG', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      setLastUpdatedTime(nowStr);
       setIsAnalyzing(false);
       setHasRevealed(true);
       sound.playSuccess();
-    }, 1200);
+    }, 1100);
   };
 
   // زر توليد دور جديد ونشره في مسار m11 بقاعدة الفايربيز
@@ -220,6 +210,40 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
         <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono-cyber font-black text-xs">
           VIP
         </span>
+      </div>
+
+      {/* Live Round Sync Banner */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 bg-zinc-950/85 border border-white/10 rounded-2xl text-xs backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          {roundNumber > 0 ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-bold text-zinc-300">مزامنة النسخة:</span>
+              <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono-cyber font-black text-xs">
+                جولة #{roundNumber}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-bold text-zinc-300">مزامنة النسخة:</span>
+              <span className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-xs">
+                بانتظار بدء الدور
+              </span>
+            </>
+          )}
+        </div>
+
+        {lastUpdatedTime ? (
+          <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            تحديث: {lastUpdatedTime}
+          </span>
+        ) : (
+          <span className="text-[10px] text-zinc-500 font-medium">
+            اضغط "ابدأ الدور" للبدء
+          </span>
+        )}
       </div>
 
       {/* 4️⃣ الشبكة بالترتيب الصحيح (10 صفوف من الأسفل للأعلى، 5 أعمدة) */}
@@ -354,7 +378,7 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons: "ابدأ الدور" */}
+      {/* Action Buttons: "ابدأ الدور" / "بدء دور جديد" */}
       <div className="space-y-2.5">
         <button
           onClick={handleStartRound}
@@ -363,29 +387,22 @@ export const ApplePredictor: React.FC<ApplePredictorProps> = ({
         >
           <Play className="w-4 h-4 fill-white" />
           <span>
-            {isAnalyzing ? 'جارٍ المزامنة وكشف المسار من الفايربيز...' : 'ابدأ الدور (كشف التوقعات المباشرة)'}
+            {isAnalyzing
+              ? 'جارٍ مسح وتوليد توقعات الدور الجديد...'
+              : hasRevealed
+              ? `بدء دور جديد (تحديث التوقعات لجولة #${roundNumber + 1})`
+              : 'ابدأ الدور (كشف توقعات الجولة المباشرة)'}
           </span>
         </button>
 
         {hasRevealed && (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleGenerateNextRound}
-              disabled={isAnalyzing}
-              className="h-11 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-400 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>توليد جولة جديدة في الفايربيز</span>
-            </button>
-
-            <button
-              onClick={handleReset}
-              className="h-11 rounded-2xl bg-zinc-900 border border-white/10 hover:border-white/25 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>إعادة ضبط الدور</span>
-            </button>
-          </div>
+          <button
+            onClick={handleReset}
+            className="w-full h-10 rounded-xl bg-zinc-900 border border-white/10 hover:border-white/25 text-zinc-300 hover:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>إخفاء التوقعات الحالية</span>
+          </button>
         )}
       </div>
 

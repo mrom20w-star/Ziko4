@@ -312,7 +312,7 @@ export async function saveApplePredictions(data: Record<string, Record<string, s
 /**
  * Get m11 predictions from Firebase RTDB (with local fallback)
  */
-export async function getApplePredictions(): Promise<Record<string, Record<string, string>>> {
+export async function getApplePredictions(): Promise<Record<string, Record<string, string>> | null> {
   if (rtdb) {
     try {
       const snapshot = await get(ref(rtdb, 'm11'));
@@ -334,21 +334,16 @@ export async function getApplePredictions(): Promise<Record<string, Record<strin
     if (raw) return JSON.parse(raw);
   } catch {}
 
-  // Generate initial if not existing
-  const initial = generateApplePredictionsData();
-  await saveApplePredictions(initial);
-  return initial;
+  return null;
 }
 
 /**
- * Subscribe in real-time to m11 updates from Firebase RTDB
+ * Subscribe in real-time to m11 updates from Firebase RTDB (read-only listener)
  */
 export function subscribeToApplePredictions(
   callback: (data: Record<string, Record<string, string>>) => void
 ): () => void {
   if (!rtdb) {
-    // If no rtdb, return static
-    getApplePredictions().then(callback);
     return () => {};
   }
 
@@ -361,17 +356,11 @@ export function subscribeToApplePredictions(
           localStorage.setItem(M11_STORAGE_KEY, JSON.stringify(data));
         } catch {}
         callback(data);
-      } else {
-        // Generate and save
-        const initial = generateApplePredictionsData();
-        saveApplePredictions(initial);
-        callback(initial);
       }
     });
 
     return unsubscribe;
   } catch {
-    getApplePredictions().then(callback);
     return () => {};
   }
 }
