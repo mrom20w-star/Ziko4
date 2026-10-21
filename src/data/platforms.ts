@@ -10,7 +10,7 @@ export const PLATFORMS: PlatformConfig[] = [
     latency: '10ms',
     geo: 'سيرفر VIP حصري',
     recommended: true,
-    appDownloadUrl: 'https://refpa83754.com/L?tag=d_6238052m_88828c_&site=6238052&ad=88828',
+    appDownloadUrl: 'https://refpa83754.com/L?tag=d_6238052m_67005c_&site=6238052&ad=67005',
     registerUrl: 'https://refpa83754.com/L?tag=d_6238052m_88828c_&site=6238052&ad=88828',
     promoCode: 'R11',
     telegramUrl: 'https://t.me/+4fSJ8LxoeN1mZGNk',

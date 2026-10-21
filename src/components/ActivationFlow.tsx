@@ -161,14 +161,20 @@ export const ActivationFlow: React.FC<ActivationFlowProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-3 bg-zinc-900/80 border border-white/5 p-3 rounded-xl">
-            <div className="w-11 h-11 rounded-xl bg-black border border-white/10 p-1 flex items-center justify-center shrink-0 overflow-hidden">
+          <a
+            href={platform.appDownloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => sound.playClick()}
+            className="flex items-center gap-3 bg-zinc-900/80 hover:bg-zinc-900 border border-white/5 hover:border-[#ff1e38]/40 p-3 rounded-xl transition-all cursor-pointer group"
+          >
+            <div className="w-11 h-11 rounded-xl bg-black border border-white/10 group-hover:border-[#ff1e38]/50 p-1 flex items-center justify-center shrink-0 overflow-hidden transition-colors">
               <img src={platform.img} alt={platform.name} className="w-full h-full object-contain" />
             </div>
-            <p className="text-[11px] text-zinc-400 leading-relaxed">
+            <p className="text-[11px] text-zinc-400 group-hover:text-zinc-200 leading-relaxed transition-colors">
               قم بتحميل وتثبيت النسخة الرسمية من تطبيق {platform.name}، أو أنشئ حسابك الجديد مباشرة عبر الرابط المعتمد.
             </p>
-          </div>
+          </a>
 
           {/* Button 1: Download App */}
           <a
